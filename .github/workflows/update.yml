@@ -1,0 +1,44 @@
+name: Update AUR packages
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: AUR pkgbase (leave blank for all packages)
+        type: string
+      dry_run:
+        description: Test without pushing to the AUR
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    runs-on: ubuntu-24.04
+    outputs:
+      packages: ${{ steps.packages.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - id: packages
+        env:
+          SELECTED: ${{ inputs.package }}
+        run: python3 scripts/packages.py >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: discover
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.discover.outputs.packages) }}
+    uses: ./.github/workflows/update-package.yml
+    with:
+      package: ${{ matrix.package }}
+      dry_run: ${{ inputs.dry_run == true }}
+    secrets:
+      aur_ssh_key: ${{ secrets.AUR_SSH_KEY }}

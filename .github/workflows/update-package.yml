@@ -1,0 +1,91 @@
+name: Update one AUR package
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        type: string
+        required: true
+      dry_run:
+        type: boolean
+        required: true
+    secrets:
+      aur_ssh_key:
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aur-update-${{ inputs.package }}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    outputs:
+      patch: ${{ steps.bump.outputs.patch }}
+      base: ${{ steps.bump.outputs.base }}
+      version: ${{ steps.bump.outputs.version }}
+    env:
+      PACKAGE: ${{ inputs.package }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - name: Install Arch tools
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Syu --noconfirm --needed ca-certificates git nvchecker pacman-contrib sudo
+
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check and prepare update
+        id: bump
+        run: |
+          config="packages/$PACKAGE"
+          nvchecker --failures --tries 3 -c "$config/.nvchecker.toml" -e "$PACKAGE"
+          version="$(python scripts/packages.py version "$PACKAGE")"
+          build="$(python scripts/packages.py build "$PACKAGE")"
+
+          useradd --create-home aur-builder
+          printf '%s\n' 'aur-builder ALL=(root) NOPASSWD: /usr/bin/pacman' |
+            install -D -m 0440 /dev/stdin /etc/sudoers.d/aur-builder
+          runuser --user aur-builder -- bash scripts/prepare.sh "$PACKAGE" "$version" "$build" "$DRY_RUN" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize
+        env:
+          VERSION: ${{ steps.bump.outputs.version }}
+          BASE: ${{ steps.bump.outputs.base }}
+        run: |
+          printf '### %s %s\n\n' "$PACKAGE" "$VERSION" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -z "$BASE" ]]; then
+            printf 'No version bump needed.\n' >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$DRY_RUN" == true ]]; then
+            printf 'Update prepared in dry-run mode.\n' >> "$GITHUB_STEP_SUMMARY"
+          else
+            printf 'Update prepared for AUR publication.\n' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  publish:
+    needs: prepare
+    if: ${{ !inputs.dry_run && github.ref_name == github.event.repository.default_branch && needs.prepare.outputs.patch != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Push update to AUR
+        env:
+          PACKAGE: ${{ inputs.package }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+          BASE: ${{ needs.prepare.outputs.base }}
+          AUR_PATCH: ${{ needs.prepare.outputs.patch }}
+          AUR_SSH_KEY: ${{ secrets.aur_ssh_key }}
+        run: bash scripts/publish.sh

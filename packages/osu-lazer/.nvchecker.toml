@@ -1,0 +1,11 @@
+[__config__]
+oldver = "/dev/null"
+newver = "$RUNNER_TEMP/nvchecker-new.json"
+
+[osu-lazer]
+source = "github"
+github = "ppy/osu"
+use_max_release = true
+include_regex = '^[0-9]+\.[0-9]+\.[0-9]+-lazer$'
+from_pattern = "-lazer$"
+to_pattern = ""
