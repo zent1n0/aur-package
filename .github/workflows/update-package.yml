@@ -45,11 +45,21 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check and prepare update
+      - name: Check upstream release
+        env:
+          NV_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          umask 077
+          keyfile="$(mktemp "$RUNNER_TEMP/nvchecker-key.XXXXXXXX")"
+          trap 'rm -f -- "$keyfile"' EXIT
+          printf '[keys]\n"github.com" = "%s"\n' "$NV_GITHUB_TOKEN" > "$keyfile"
+          unset NV_GITHUB_TOKEN
+          nvchecker --failures --tries 3 --keyfile "$keyfile" \
+            -c "packages/$PACKAGE/.nvchecker.toml" -e "$PACKAGE"
+
+      - name: Prepare update
         id: bump
         run: |
-          config="packages/$PACKAGE"
-          nvchecker --failures --tries 3 -c "$config/.nvchecker.toml" -e "$PACKAGE"
           version="$(python scripts/packages.py version "$PACKAGE")"
           build="$(python scripts/packages.py build "$PACKAGE")"
 
