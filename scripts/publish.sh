@@ -17,7 +17,7 @@ export GIT_SSH_COMMAND="ssh -F /dev/null -o BatchMode=yes -o IdentitiesOnly=yes 
 git clone --quiet "ssh://aur@aur.archlinux.org/$PACKAGE.git" "$work_dir/aur"
 cd "$work_dir/aur"
 [[ "$(git rev-parse HEAD)" == "$BASE" ]] ||
-  { echo 'AUR changed since preparation. Retry after the mirror catches up.' >&2; exit 1; }
+  { echo 'AUR changed since preparation. Run the update again from the current AUR revision.' >&2; exit 1; }
 branch="$(git symbolic-ref --short HEAD)"
 printf '%s' "$AUR_PATCH" | base64 --decode |
   git apply --index --include=PKGBUILD --include=.SRCINFO -
