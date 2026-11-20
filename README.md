@@ -1,6 +1,6 @@
 # AUR Package Updates
 
-This repository automatically updates selected AUR packages I maintain. GitHub Actions checks upstream releases with `nvchecker` every six hours.
+This repository automatically updates selected AUR packages I maintain. GitHub Actions checks upstream releases with `nvchecker` at 00:00, 06:00, 12:00, and 18:00 UTC.
 
 | Package | Description | Upstream | Build check |
 | --- | --- | --- | --- |
@@ -8,7 +8,7 @@ This repository automatically updates selected AUR packages I maintain. GitHub A
 
 ## How it works
 
-For each package, CI reads the current AUR packaging files from the [AUR GitHub mirror](https://github.com/archlinux/aur). When upstream is newer, it bumps `pkgver`, resets `pkgrel`, recalculates checksums, and regenerates `.SRCINFO`. If enabled, `makepkg` builds and packages the update inside an x86_64 Arch Linux container. Build artifacts are discarded.
+For each package, CI reads the current AUR packaging files directly from the AUR over unauthenticated HTTPS. When upstream is newer, it bumps `pkgver`, resets `pkgrel`, recalculates checksums, and regenerates `.SRCINFO`. If enabled, `makepkg` builds and packages the update inside an x86_64 Arch Linux container. Build artifacts are discarded.
 
 A separate job applies the tested changes and pushes them to AUR over SSH. It stops if the live AUR repository has moved. GitHub runs schedules from the default branch and can disable schedules in public repositories after 60 days of inactivity.
 
