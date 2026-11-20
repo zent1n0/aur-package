@@ -8,8 +8,7 @@ dry_run="$4"
 work_dir="$(mktemp -d)"
 trap 'rm -rf -- "$work_dir"' EXIT
 
-mirror="${AUR_MIRROR:-https://github.com/archlinux/aur.git}"
-git clone --quiet --depth=1 --single-branch --branch "$package" "$mirror" "$work_dir/aur"
+git clone --quiet --single-branch "https://aur.archlinux.org/$package.git" "$work_dir/aur"
 cd "$work_dir/aur"
 
 base="$(git rev-parse HEAD)"
