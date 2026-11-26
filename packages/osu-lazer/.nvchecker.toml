@@ -1,7 +1,3 @@
-[__config__]
-oldver = "/dev/null"
-newver = "$RUNNER_TEMP/nvchecker-new.json"
-
 [osu-lazer]
 source = "github"
 github = "ppy/osu"

@@ -19,26 +19,43 @@ permissions:
 jobs:
   discover:
     runs-on: ubuntu-24.04
+    container: archlinux:base-devel
+    timeout-minutes: 10
     outputs:
-      packages: ${{ steps.packages.outputs.matrix }}
+      matrix: ${{ steps.packages.outputs.matrix }}
     steps:
+      - name: Install version check tools
+        run: |
+          pacman-key --init
+          pacman-key --populate archlinux
+          pacman -Syu --noconfirm --needed ca-certificates git nvchecker python-toml
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - id: packages
+      - name: Compare AUR and upstream versions
+        id: packages
         env:
           SELECTED: ${{ inputs.package }}
+          DRY_RUN: ${{ inputs.dry_run == true }}
+          NV_GITHUB_TOKEN: ${{ github.token }}
         run: python3 scripts/packages.py >> "$GITHUB_OUTPUT"
+      - name: Report failed version checks
+        if: ${{ steps.packages.outputs.incomplete == 'true' }}
+        run: exit 1
 
   update:
     needs: discover
+    if: ${{ !cancelled() && needs.discover.outputs.matrix != '' && needs.discover.outputs.matrix != '[]' }}
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
       matrix:
-        package: ${{ fromJSON(needs.discover.outputs.packages) }}
+        include: ${{ fromJSON(needs.discover.outputs.matrix) }}
     uses: ./.github/workflows/update-package.yml
     with:
       package: ${{ matrix.package }}
+      version: ${{ matrix.version }}
       dry_run: ${{ inputs.dry_run == true }}
     secrets:
       aur_ssh_key: ${{ secrets.AUR_SSH_KEY }}

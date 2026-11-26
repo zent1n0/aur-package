@@ -23,7 +23,17 @@ printf '%s' "$AUR_PATCH" | base64 --decode |
   git apply --index --include=PKGBUILD --include=.SRCINFO -
 git diff --cached --exit-code --quiet -- PKGBUILD &&
   { echo 'Prepared update did not modify PKGBUILD.' >&2; exit 1; }
+aur_version="$(awk '
+  $1 == "epoch" && $2 == "=" { epoch = $3 ":" }
+  $1 == "pkgver" && $2 == "=" { version = $3 }
+  $1 == "pkgrel" && $2 == "=" { release = $3 }
+  END {
+    if (version == "" || release == "") exit 1
+    print epoch version "-" release
+  }
+' .SRCINFO)"
 git -c user.name='Zentino' -c user.email='52699319+zent1n0@users.noreply.github.com' \
-  commit -m "Update to $VERSION"
+  commit -m "Bump to $VERSION"
 git push origin "HEAD:refs/heads/$branch"
+printf 'aur_version=%s\n' "$aur_version" >> "$GITHUB_OUTPUT"
 printf 'Published %s %s to the AUR.\n' "$PACKAGE" "$VERSION" >> "$GITHUB_STEP_SUMMARY"

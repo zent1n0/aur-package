@@ -6,6 +6,9 @@ on:
       package:
         type: string
         required: true
+      version:
+        type: string
+        required: true
       dry_run:
         type: boolean
         required: true
@@ -33,40 +36,28 @@ jobs:
       version: ${{ steps.bump.outputs.version }}
     env:
       PACKAGE: ${{ inputs.package }}
+      VERSION: ${{ inputs.version }}
       DRY_RUN: ${{ inputs.dry_run }}
     steps:
       - name: Install Arch tools
         run: |
           pacman-key --init
           pacman-key --populate archlinux
-          pacman -Syu --noconfirm --needed ca-certificates git nvchecker pacman-contrib sudo
+          pacman -Syu --noconfirm --needed ca-certificates git pacman-contrib python sudo
 
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
 
-      - name: Check upstream release
-        env:
-          NV_GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          umask 077
-          keyfile="$(mktemp "$RUNNER_TEMP/nvchecker-key.XXXXXXXX")"
-          trap 'rm -f -- "$keyfile"' EXIT
-          printf '[keys]\n"github.com" = "%s"\n' "$NV_GITHUB_TOKEN" > "$keyfile"
-          unset NV_GITHUB_TOKEN
-          nvchecker --failures --tries 3 --keyfile "$keyfile" \
-            -c "packages/$PACKAGE/.nvchecker.toml" -e "$PACKAGE"
-
       - name: Prepare update
         id: bump
         run: |
-          version="$(python scripts/packages.py version "$PACKAGE")"
           build="$(python scripts/packages.py build "$PACKAGE")"
 
           useradd --create-home aur-builder
           printf '%s\n' 'aur-builder ALL=(root) NOPASSWD: /usr/bin/pacman' |
             install -D -m 0440 /dev/stdin /etc/sudoers.d/aur-builder
-          runuser --user aur-builder -- bash scripts/prepare.sh "$PACKAGE" "$version" "$build" "$DRY_RUN" >> "$GITHUB_OUTPUT"
+          runuser --user aur-builder -- bash scripts/prepare.sh "$PACKAGE" "$VERSION" "$build" "$DRY_RUN" >> "$GITHUB_OUTPUT"
 
       - name: Summarize
         env:
@@ -87,11 +78,12 @@ jobs:
     if: ${{ !inputs.dry_run && github.ref_name == github.event.repository.default_branch && needs.prepare.outputs.patch != '' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
       - name: Push update to AUR
+        id: aur
         env:
           PACKAGE: ${{ inputs.package }}
           VERSION: ${{ needs.prepare.outputs.version }}
@@ -99,3 +91,27 @@ jobs:
           AUR_PATCH: ${{ needs.prepare.outputs.patch }}
           AUR_SSH_KEY: ${{ secrets.aur_ssh_key }}
         run: bash scripts/publish.sh
+
+      - name: Record published AUR version on GitHub
+        env:
+          PACKAGE: ${{ inputs.package }}
+          AUR_VERSION: ${{ steps.aur.outputs.aur_version }}
+        run: |
+          : "${AUR_VERSION:?Missing published AUR version}"
+          printf '%s\n' "$AUR_VERSION" > "packages/$PACKAGE/aur-version"
+          git add -- "packages/$PACKAGE/aur-version"
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Record $PACKAGE $AUR_VERSION"
+          for attempt in 1 2 3; do
+            git pull --rebase origin "$GITHUB_REF_NAME"
+            if git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"; then
+              exit 0
+            fi
+            sleep "$attempt"
+          done
+          echo 'Published to AUR but failed to update the version record on GitHub.' >&2
+          exit 1

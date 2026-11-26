@@ -1,7 +1,3 @@
-[__config__]
-oldver = "/dev/null"
-newver = "$RUNNER_TEMP/nvchecker-new.json"
-
 [python-certbot-pkcs12]
 source = "github"
 github = "nasa-gcn/certbot-pkcs12"

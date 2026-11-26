@@ -12,7 +12,7 @@ git clone --quiet --single-branch "https://aur.archlinux.org/$package.git" "$wor
 cd "$work_dir/aur"
 
 base="$(git rev-parse HEAD)"
-current="$(makepkg --printsrcinfo | awk '$1 == "pkgver" && $2 == "=" { print $3 }')"
+current="$(awk '$1 == "pkgver" && $2 == "=" { print $3 }' .SRCINFO)"
 [[ -n "$current" ]] || { echo 'Could not determine the AUR pkgver.' >&2; exit 1; }
 comparison="$(vercmp "$version" "$current")"
 printf '%s: AUR %s, upstream %s\n' "$package" "$current" "$version" >&2
