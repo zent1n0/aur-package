@@ -98,14 +98,14 @@ jobs:
           AUR_VERSION: ${{ steps.aur.outputs.aur_version }}
         run: |
           : "${AUR_VERSION:?Missing published AUR version}"
-          printf '%s\n' "$AUR_VERSION" > "packages/$PACKAGE/aur-version"
-          git add -- "packages/$PACKAGE/aur-version"
+          python3 scripts/packages.py record-version "$PACKAGE"
+          git add -- "packages/$PACKAGE/update.toml"
           if git diff --cached --quiet; then
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m "Record $PACKAGE $AUR_VERSION"
+          git commit -m "$PACKAGE: auto updated to $AUR_VERSION"
           for attempt in 1 2 3; do
             git pull --rebase origin "$GITHUB_REF_NAME"
             if git push origin "HEAD:refs/heads/$GITHUB_REF_NAME"; then

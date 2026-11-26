@@ -15,6 +15,30 @@ def options(package):
     return tomllib.loads(config.read_text()) if config.exists() else {}
 
 
+def record_version(package, version):
+    path = Path("packages") / package / "update.toml"
+    original = path.read_text() if path.exists() else ""
+    config = tomllib.loads(original)
+    if config.get("aur_version") == version:
+        return
+
+    value = json.dumps(version)
+    if "aur_version" in config:
+        updated = re.sub(
+            r'(?m)^(aur_version[ \t]*=[ \t]*)"[^"\n]*"',
+            lambda match: match[1] + value,
+            original,
+            count=1,
+        )
+    else:
+        updated = f"aur_version = {value}\n" + original
+
+    config["aur_version"] = version
+    if tomllib.loads(updated) != config:
+        raise SystemExit(f"Could not update the top-level aur_version field in {path}")
+    path.write_text(updated)
+
+
 def aur_versions(names):
     query = urlencode([("arg[]", name) for name in sorted(set(names.values()))])
     request = Request(
@@ -102,9 +126,12 @@ if len(sys.argv) == 1:
     check_packages()
 else:
     action, package = sys.argv[1:]
-    if action != "build":
+    if action == "record-version":
+        record_version(package, os.environ["AUR_VERSION"])
+    elif action == "build":
+        build = options(package).get("build", False)
+        if type(build) is not bool:
+            raise SystemExit(f"build must be a boolean for {package}")
+        print("true" if build else "false")
+    else:
         raise SystemExit(f"Unknown action: {action!r}")
-    build = options(package).get("build", False)
-    if type(build) is not bool:
-        raise SystemExit(f"build must be a boolean for {package}")
-    print("true" if build else "false")

@@ -11,7 +11,7 @@ This repository automatically updates selected AUR packages I maintain. GitHub A
 
 CI fetches current versions in one AUR RPC request and passes them to nvchecker as its baseline. Only packages with a newer upstream version enter the update matrix. For each candidate, CI clones its AUR Git repository over HTTPS, checks the current version again, and bumps `pkgver`, resets `pkgrel`, recalculates checksums, and regenerates `.SRCINFO`. If enabled, `makepkg` builds and packages the update inside an x86_64 Arch Linux container. Build artifacts are discarded.
 
-A separate job applies the tested changes and pushes them to AUR over SSH. It stops if the live AUR repository has moved. After a successful push, it records the published version in `packages/<pkgbase>/aur-version` on GitHub. The next check still uses live AUR data so manual releases are picked up. GitHub runs schedules from the default branch and can disable schedules in public repositories after 60 days of inactivity.
+A separate job applies the tested changes and pushes them to AUR over SSH. It stops if the live AUR repository has moved. After a successful push, it records the published version in the `aur_version` field of `packages/<pkgbase>/update.toml` on GitHub. The next check still uses live AUR data so manual releases are picked up. GitHub runs schedules from the default branch and can disable schedules in public repositories after 60 days of inactivity.
 
 ## Setup
 
