@@ -5,6 +5,7 @@ This repository automatically updates selected AUR packages I maintain. GitHub A
 | Package | Description | Upstream | Build check |
 | --- | --- | --- | --- |
 | [`osu-lazer`](https://aur.archlinux.org/packages/osu-lazer) | Source build of osu!lazer, the open-source rhythm game | [`ppy/osu`](https://github.com/ppy/osu/releases), stable lazer releases | Enabled |
+| [`python-certbot-pkcs12`](https://aur.archlinux.org/packages/python-certbot-pkcs12) | PKCS#12 installer plugin for Certbot | [`nasa-gcn/certbot-pkcs12`](https://github.com/nasa-gcn/certbot-pkcs12/releases) | Enabled |
 
 ## How it works
 
